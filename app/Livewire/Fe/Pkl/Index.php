@@ -12,6 +12,7 @@ use Livewire\WithPagination;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Compilers\Mount;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class Index extends Component
 {
@@ -23,21 +24,20 @@ class Index extends Component
 
     use WithPagination;
 
-    public $rowPerPage=10;
+    public $rowPerPage = 10;
     public $search;
     public $userMail;
-    public $siswa_login; // Tambahkan property ini
+    public $siswa_login;
 
-    public function mount(){
-        //membaca email user yang seddang login
+    public function mount()
+    {
         $this->userMail = Auth::user()->email;
-        //mengakses record siswa yang emailnya sama dengan user yang sedang login
-        $this->siswa_login = Siswa::where('email','=',$this->userMail)->first();
+        $this->siswa_login = Siswa::where('email', '=', $this->userMail)->first();
     }
     
     public function render()
     {
-        return view('livewire.fe.pkl.index',[
+        return view('livewire.fe.pkl.index', [
             'pkls' => $this->search === NULL ?
                         Pkl::latest()->paginate($this->rowPerPage) :
                         Pkl::latest()->whereHas('siswa', function ($query) {
@@ -47,9 +47,9 @@ class Index extends Component
                                                 $query->where('nama', 'like', '%' . $this->search . '%');
                                     })->paginate($this->rowPerPage),
             
-            'siswa_login'=>$this->siswa_login,
-            'industris'=>Industri::all(),
-            'gurus'=>Guru::all(),
+            'siswa_login' => $this->siswa_login,
+            'industris' => Industri::all(),
+            'gurus' => Guru::all(),
         ]);
     }
 
@@ -72,91 +72,158 @@ class Index extends Component
         $this->editingId = null;
     }
 
-    private function resetInputFields(){
-        $this->siswaId      ='';
-        $this->industriId   = '';
-        $this->guruId       = '';
-        $this->mulai        ='';
-        $this->selesai      = '';
+    private function resetInputFields()
+    {
+        $this->siswaId = '';
+        $this->industriId = '';
+        $this->guruId = '';
+        $this->mulai = '';
+        $this->selesai = '';
     }
 
-    // Fungsi untuk mengecek apakah user bisa edit/hapus
     public function canEditDelete($pklSiswaId)
     {
         return $this->siswa_login && $this->siswa_login->id == $pklSiswaId;
     }
 
+    /**
+     * Validasi tanggal mulai minimal 1 Juli tahun berjalan
+     */
+    private function validateTanggalMulai($attribute, $value, $fail)
+    {
+        $mulaiDate = Carbon::parse($value);
+        $currentYear = Carbon::now()->year;
+        
+        // Tanggal 1 Juli tahun berjalan
+        $julyFirst = Carbon::create($currentYear, 7, 1);
+        
+        // Jika sekarang sudah lewat 1 Juli, maka tahun depan
+        if (Carbon::now()->lt($julyFirst)) {
+            $julyFirst = Carbon::create($currentYear, 7, 1);
+        } else {
+            // Jika sudah lewat 1 Juli tahun ini, bisa mulai tahun ini atau tahun depan
+            $julyFirstThisYear = Carbon::create($currentYear, 7, 1);
+            $julyFirstNextYear = Carbon::create($currentYear + 1, 7, 1);
+            
+            if ($mulaiDate->lt($julyFirstThisYear)) {
+                $fail('Tanggal mulai harus minimal tanggal 1 Juli ' . $currentYear . ' atau setelahnya.');
+                return;
+            }
+        }
+        
+        if ($mulaiDate->lt($julyFirst)) {
+            $fail('Tanggal mulai harus minimal tanggal 1 Juli atau setelahnya.');
+        }
+    }
+
+    /**
+     * Validasi durasi minimal 90 hari
+     */
+    private function validateDurasi($attribute, $value, $fail)
+    {
+        if ($value && $this->mulai) {
+            $mulaiDate = Carbon::parse($this->mulai);
+            $selesaiDate = Carbon::parse($value);
+            
+            // Hitung selisih hari (termasuk hari mulai)
+            $durasiHari = $mulaiDate->diffInDays($selesaiDate) + 1;
+            
+            if ($durasiHari < 90) {
+                $fail('Durasi PKL harus minimal 90 hari. Saat ini durasi adalah ' . $durasiHari . ' hari.');
+            }
+        }
+    }
+
+    /**
+     * Auto-set tanggal selesai berdasarkan tanggal mulai
+     */
+    public function updatedMulai()
+    {
+        if ($this->mulai) {
+            $mulaiDate = Carbon::parse($this->mulai);
+            // Set tanggal selesai otomatis 90 hari setelah mulai
+            $this->selesai = $mulaiDate->addDays(89)->format('Y-m-d'); // 89 hari karena sudah include hari mulai
+        }
+    }
+
     public function store()
     {
         $this->validate([
-                'siswaId'       => 'required',
-                'industriId'    => 'required',
-                'guruId'        => 'nullable',
-                'mulai'         => 'required|date',
-                'selesai'       => 'required|date|after:mulai',
-            ]);
-        
-        DB::beginTransaction();
-        
-        try {
-            $siswa = Siswa::find($this->siswaId);
+            'siswaId' => 'required',
+            'industriId' => 'required',
+            'guruId' => 'nullable|exists:gurus,id', // Validasi jika diisi harus ada di tabel guru
+            'mulai' => [
+                'required', 
+                'date',
+                function($attribute, $value, $fail) {
+                    $this->validateTanggalMulai($attribute, $value, $fail);
+                }
+            ],
+            'selesai' => [
+                'required', 
+                'date', 
+                'after_or_equal:mulai',
+                function($attribute, $value, $fail) {
+                    $this->validateDurasi($attribute, $value, $fail);
+                }
+            ],
+        ], [
+            // Custom error messages
+            'siswaId.required' => 'Siswa harus dipilih.',
+            'industriId.required' => 'Industri harus dipilih.',
+            'guruId.exists' => 'Guru yang dipilih tidak valid.',
+            'mulai.required' => 'Tanggal mulai harus diisi.',
+            'mulai.date' => 'Format tanggal mulai tidak valid.',
+            'selesai.required' => 'Tanggal selesai harus diisi.',
+            'selesai.date' => 'Format tanggal selesai tidak valid.',
+            'selesai.after_or_equal' => 'Tanggal selesai harus sama atau setelah tanggal mulai.',
+        ]);
 
-            // Cek status PKL untuk create baru
-            if (!$this->editMode && $siswa->status_pkl) {
-                DB::rollBack();
-                $this->closeModal();
-                session()->flash('error', 'Transaksi dibatalkan: Siswa sudah melapor.');
-                return;
+        DB::beginTransaction();
+        try {
+            // Cek apakah siswa sudah punya PKL aktif
+            $existingPkl = Pkl::where('siswa_id', $this->siswaId)->first();
+            if ($existingPkl && !$this->editMode) {
+                throw new \Exception('Siswa sudah memiliki data PKL.');
             }
 
             if ($this->editMode) {
                 // Update existing PKL
                 $pkl = Pkl::findOrFail($this->editingId);
-                
-                // Pastikan hanya siswa yang bersangkutan yang bisa update
-                if ($pkl->siswa_id !== $this->siswa_login->id) {
-                    DB::rollBack();
-                    $this->closeModal();
-                    session()->flash('error', 'Anda tidak memiliki izin untuk mengedit data ini.');
-                    return;
-                }
-
                 $pkl->update([
-                    'siswa_id'    => $this->siswaId,
+                    'siswa_id' => $this->siswaId,
                     'industri_id' => $this->industriId,
-                    'guru_id'     => $this->guruId ?: null,
-                    'mulai'       => $this->mulai,
-                    'selesai'     => $this->selesai,
+                    'guru_id' => $this->guruId ?: null, // Convert empty string to null
+                    'mulai' => $this->mulai,
+                    'selesai' => $this->selesai,
                 ]);
-
-                $message = "Data PKL berhasil diupdate!";
+                
+                session()->flash('success', 'Data PKL berhasil diupdate.');
             } else {
                 // Create new PKL
                 Pkl::create([
-                    'siswa_id'    => $this->siswaId,
+                    'siswa_id' => $this->siswaId,
                     'industri_id' => $this->industriId,
-                    'guru_id'     => $this->guruId ?: null,
-                    'mulai'       => $this->mulai,
-                    'selesai'     => $this->selesai,
+                    'guru_id' => $this->guruId ?: null, // Convert empty string to null
+                    'mulai' => $this->mulai,
+                    'selesai' => $this->selesai,
                 ]);
 
-                // Update status_lapor siswa
-                $siswa->update(['status_pkl' => 1]);
+                // Update status siswa
+                $siswa = Siswa::find($this->siswaId);
+                if ($siswa) {
+                    $siswa->update(['status_pkl' => 1]);
+                }
                 
-                $siswanama = $siswa->nama;
-                $message = "Data PKL berhasil disimpan dan status $siswanama lapor pkl!";
+                session()->flash('success', 'Data PKL berhasil ditambahkan.');
             }
 
             DB::commit();
-            
             $this->closeModal();
             $this->resetInputFields();
 
-            session()->flash('success', $message);
-            
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->closeModal();
             session()->flash('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
@@ -165,13 +232,11 @@ class Index extends Component
     {
         $pkl = Pkl::findOrFail($id);
 
-        // Cek authorization
         if ($pkl->siswa_id !== $this->siswa_login->id) {
             session()->flash('error', 'Anda tidak memiliki izin untuk mengedit data ini.');
             return;
         }
 
-        // Set data ke form
         $this->editingId = $id;
         $this->siswaId = $pkl->siswa_id;
         $this->industriId = $pkl->industri_id;
@@ -182,14 +247,12 @@ class Index extends Component
         $this->editMode = true;
         $this->openModal();
     }
-       // SET ID untuk konfirmasi hapus
+
     public function setPklIdToDelete($id)
     {
         $this->pklIdToDelete = $id;
     }
 
-
-        // KONFIRMASI DELETE
     public function confirmDelete()
     {
         if (!$this->pklIdToDelete) {
@@ -222,8 +285,23 @@ class Index extends Component
             session()->flash('error', 'Terjadi kesalahan saat menghapus data: ' . $e->getMessage());
         }
 
-
         $this->pklIdToDelete = null;
     }
 
+    /**
+     * Helper method untuk mendapatkan tanggal minimal
+     */
+    public function getMinStartDate()
+    {
+        $currentYear = Carbon::now()->year;
+        $julyFirst = Carbon::create($currentYear, 7, 1);
+        
+        // Jika sekarang masih sebelum 1 Juli, maka minimal 1 Juli tahun ini
+        // Jika sudah lewat 1 Juli, maka bisa mulai dari sekarang atau 1 Juli tahun depan
+        if (Carbon::now()->lt($julyFirst)) {
+            return $julyFirst->format('Y-m-d');
+        } else {
+            return Carbon::now()->format('Y-m-d');
+        }
+    }
 }

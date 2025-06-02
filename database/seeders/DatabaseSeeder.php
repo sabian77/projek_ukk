@@ -17,6 +17,6 @@ class DatabaseSeeder extends Seeder
         $this->call(SiswaSeeder::class);
 
         //memanggil sedder guru
-        //$this->call(GuruSeeder::class);
+        $this->call(GuruSeeder::class);
     }
 }

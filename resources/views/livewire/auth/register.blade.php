@@ -63,7 +63,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
         ]);
 
         // Berikan role "siswa" menggunakan Shield
-        $user->assignRole('siswa');
+        $user->assignRole('Siswa');
 
         event(new Registered($user));
 

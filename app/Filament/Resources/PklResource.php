@@ -5,12 +5,14 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PklResource\Pages;
 use App\Filament\Resources\PklResource\RelationManagers;
 use App\Models\Pkl;
+use App\Models\Siswa;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -94,6 +96,16 @@ class PklResource extends Resource
                 ]),
             ]);
     }
+
+    public static function beforeDelete(Siswa $record): void
+    {
+    $isSiswaInPkl = DB::table('pkls')->where('siswa_id', $record->id)->exists();
+
+    if ($isSiswaInPkl) {
+        abort(403, 'Siswa ini sedang use Illuminate\Support\Facades\DB;PKL dan tidak bisa dihapus.');
+    }
+    }
+
 
     public static function getPages(): array
     {

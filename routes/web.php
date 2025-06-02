@@ -21,17 +21,17 @@ Route::get('/siswa', function () {
  ->name('siswa');
 
 
-// Route::middleware(['auth', 'verified', 'role:siswa', 'cek_usesrs'])->group(function () {
-//     Route::view('dashboard', 'dashboard')->name('dashboard');
-//     Route::view('pkl', 'pkl')->name('pkl');
-//     Route::view('industri', 'industri')->name('industri');
-// });
-
-Route::middleware(['auth', 'cek_usesrs'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:Siswa', 'cek_usesrs'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
     Route::view('pkl', 'pkl')->name('pkl');
     Route::view('industri', 'industri')->name('industri');
 });
+
+// Route::middleware(['auth', 'cek_usesrs'])->group(function () {
+//     Route::view('dashboard', 'dashboard')->name('dashboard');
+//     Route::view('pkl', 'pkl')->name('pkl');
+//     Route::view('industri', 'industri')->name('industri');
+// });
 
 
 

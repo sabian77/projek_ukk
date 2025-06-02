@@ -18,28 +18,17 @@ class cek_usesrs
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Cek apakah user sudah login
-        if (!Auth::check()) {
-            return redirect('/login');
+        if (Auth::check()) {
+            $UserEmail = Auth::user()->email;
+
+            //cek ketersediaan email user di tanel siswa
+            $siswa = Siswa::where('email', $UserEmail)->exists();
+
+            if (!$siswa) {
+                Auth::logout();//logout jika user tidak cocok
+                return redirect('/login')->with('error', 'Email tidak cocok dengan data di tabel siswa');
+            }
         }
-
-        $userEmail = Auth::user()->email;
-
-        // Cek email di kedua tabel sekaligus untuk optimasi
-        $isGuru = Guru::where('email', $userEmail)->exists();
-        $isSiswa = Siswa::where('email', $userEmail)->exists();
-
-        // Prioritas: Guru dulu, baru Siswa
-        if ($isGuru) {
-            return redirect('/admin'); // Route Filament
-        }
-
-        if ($isSiswa) {
-            return $next($request); // Lanjut ke halaman siswa
-        }
-
-        // Jika email tidak ditemukan di kedua tabel
-        Auth::logout();
-        return redirect('/login')->with('error', 'Email tidak terdaftar dalam sistem sebagai Guru atau Siswa.');
+        return $next($request);
     }
 }

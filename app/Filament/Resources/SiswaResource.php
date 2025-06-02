@@ -131,12 +131,30 @@ class SiswaResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make(),
-                //Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                Tables\Actions\DeleteAction::make()
+                ->requiresConfirmation()
+                ->action(function ($record) {
+                    // Cek apakah siswa memiliki data PKL
+                    $hasPkl = \App\Models\Pkl::where('siswa_id', $record->id)->exists();
+                    
+                    if ($hasPkl) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Tidak dapat menghapus data!')
+                            ->body('Siswa ini memiliki data PKL yang terkait. Hapus data PKL terlebih dahulu.')
+                            ->danger()
+                            ->send();
+                        
+                        return; // Stop execution tanpa menghapus
+                    }
+                    
+                    // Jika tidak ada PKL, hapus siswa
+                    $record->delete();
+                    
+                    \Filament\Notifications\Notification::make()
+                        ->title('Data berhasil dihapus!')
+                        ->success()
+                        ->send();
+                }),
             ]);
     }
 
