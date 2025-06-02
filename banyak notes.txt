@@ -1,0 +1,72 @@
+ditya@DESKTOP-52RUNKD:/mnt/c/Users/sabia/OneDrive/Documents/ukk$ ls 
+lokasi folder file ukk 
+
+
+Langkah ampilkan data filament pada livewire larvael
+1. pada web.php tambahkkan:
+use App\Models\pkl;
+Route::view('/pkl',  'pkl', ['pkl' => pkl::all()])->name('pkl'); 
+Route:view untuk menampilkan file yg berada di resources/view
+/pkl itu slug untuk web kita 
+'pkl' adalaha file bladenya
+pkl::all() ambil semua data dari file model
+
+2.  lalu buka pada file sidebar.blade
+                    <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+
+ketik di atas nah route('dash....') itu route kita dalam endpoint routeis juga sama demikian navigate.. untuk memberi nama pada navbar Laravel 
+
+3. pada file yang dimau missal: pkl.blade.php
+        @foreach ($pkl as $pkl)
+            <div class="relative h-full flex-1 overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
+                {{ $pkl->siswa->nama }}
+            </div>
+        @endforeach
+
+$pkl utnuk memanggil model semenetara {{ $pkl->siswa->nama }} pada database 
+
+4. pada cli, 
+C:\laragon\www\ukk(main -> origin)
+λ php artisan make:controller API/GuruController --api
+pakai --api agar sudah generate template
+
+5. untuk download mysql di serve pakai 
+sudo apt install mariadb-server mariadb-client 
+itu integrasi dgn mysql
+ 
+6. jika saat migrate muncul eror spt ini
+Illuminate\Database\QueryException SQLSTATE[HY000] [1698] Access denied for user 'root'@'localhost' (Connection: mysql, SQL: select exists (select 1 from information_schema.tables where table_schema = schema() and table_name = 'migrations' and table_type in ('BASE TABLE', 'SYSTEM VERSIONED')) as `exists`) 
+
+maka:
+- masuk mysql ketik: MariaDB [(none)]> SET PASSWORD FOR 'root'@'localhost' = PASSWORD('1308');
+Query OK, 0 rows affected (0.030 sec)
+-  FLUSH PRIVILEGES;
+- migrate lagi
+- done
+
+7. saat hbs clone dr github jgn lupa 
+- env
+- composer install
+- npm install
+- npm run build
+- php artisan key:generate
+- php artisan migrate/npm run dev
+- php artisan make:filament-user
+- php artisan shield:generate --all
+- php artisan shield:super-admin
+- php artisan db:seed
+
+CREATE USER 'cloud13'@'%' IDENTIFIED BY 'stembayo';
+GRANT ALL PRIVILEGES ON ukks.* TO 'cloud13'@'%';
+FLUSH PRIVILEGES;
+EXIT
+
+
+        ServerAdmin webmaster@localhost
+        DocumentRoot /var/www/html/ukks/public
+
+        <Directory /var/www/html/ukks/public>
+                AllowOverride all
+        </Directory>
+
+ukk2025jaya
