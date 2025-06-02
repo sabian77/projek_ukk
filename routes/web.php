@@ -27,6 +27,9 @@ Route::middleware(['auth', 'verified', 'role:Siswa', 'cek_usesrs'])->group(funct
     Route::view('industri', 'industri')->name('industri');
 });
 
+
+
+
 // Route::middleware(['auth', 'cek_usesrs'])->group(function () {
 //     Route::view('dashboard', 'dashboard')->name('dashboard');
 //     Route::view('pkl', 'pkl')->name('pkl');
